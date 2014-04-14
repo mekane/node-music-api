@@ -16,10 +16,14 @@ var db = mongojs(mongoPath, ['artists','albums'] );
 var server = restify.createServer({
     name: 'MyMusic',
 });
-server.use( restify.bodyParser({mapParams: false }) );
-
+server.use( restify.bodyParser( {mapParams: false }) );
+server.use( restify.queryParser({mapParams: false }) );
 
 //Utility
+function isEmpty(obj) {
+    return Object.keys(obj).length === 0;
+}
+
 function findAll( name, res ){
     if ( name && db[name] ){
         db[name].find({}, function(err, items){
@@ -46,15 +50,16 @@ function findAll( name, res ){
  *    post: Add a new artist
  *    del: Remove all artists (not used)
  *
+ *  /artists/?query
+ *    get: List artists by properties in query params
+ *    put: Update artists by query params (not used)
+ *
  *  /artists/:id
  *    get: Get details for a single artist 
  *    put: Replace details for a single artist
  *    post: Create a new artist with this id (not used)
  *    del: Delete the artist
  * 
- *  /artists/:name
- *    get: search for an artist with the given name
- *
  *
  * ALBUMS
  *  /albums
@@ -72,11 +77,18 @@ function findAll( name, res ){
  * ----------------------------------------------------------------------*/
 
 server.get('/music/artists', function( req, res, next ){
-    findAll('artists', res);
+    if ( isEmpty(req.query) ){ 
+        findAll('artists', res);
+    }
+    else {
+        db.artists.find( req.query, function( err, results ){
+            res.json( err ? err : results );
+        });
+    }
     return next();
 });
 
-server.post('/music/artists/', function( req, res, next ){
+server.post('/music/artists', function( req, res, next ){
     if ( req.body ){
         if ( typeof(req.body) === 'string' ){
             req.body = JSON.parse(req.body);
@@ -124,6 +136,20 @@ server.del('/music/artists/:id', function( req, res, next ){
     //TODO db.artists.remove({id:'id'});
     return next();
 });
+
+
+/* Test Route - for debugging */
+function printParams( req, res, next ){
+    console.log( '' );
+    console.log( 'query: ',req.query );
+    console.log( 'params: ',req.params );
+    console.log( 'empty query: '+isEmpty(req.query));
+
+    res.json( req.params );
+    return next();
+}
+server.get('/test', printParams );
+server.get('/test/:id', printParams );
 
 
 //Start server
